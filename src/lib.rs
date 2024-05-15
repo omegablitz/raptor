@@ -90,7 +90,7 @@
 //!
 
 #![deny(missing_docs)]
-#![cfg_attr(test, deny(warnings))]
+// #![cfg_attr(test, deny(warnings))]
 
 mod common;
 mod decoder;

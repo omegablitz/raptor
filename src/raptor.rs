@@ -11,6 +11,62 @@ pub struct Raptor {
 }
 
 impl Raptor {
+    pub fn create_intermediate_symbols(
+        k: u32,
+        encoding_symbols: &[EncodingSymbol],
+    ) -> Vec<Vec<u8>> {
+        assert_eq!(k as usize, encoding_symbols.len());
+        let mut output = encoding_symbols
+            .iter()
+            .map(|symbol| symbol.data.to_vec())
+            .collect::<Vec<_>>();
+
+        let (l, l_prime, s, h, hp) = common::intermediate_symbols(k);
+
+        // G_LDPC
+        let mut composition: Vec<Vec<u32>> = vec![Vec::new(); s as usize];
+        for i in 0..k {
+            let a = 1 + (i as f64 / s as f64).floor() as u32 % (s - 1);
+            let b = i % s;
+            composition[b as usize].push(i);
+            let b = (b + a) % s;
+            composition[b as usize].push(i);
+            let b = (b + a) % s;
+            composition[b as usize].push(i);
+        }
+
+        assert_eq!(composition.len(), s as usize);
+
+        for i in 0..s {
+            let mut symbol = vec![0_u8; output[0].len()];
+            for comp in &composition[i as usize] {
+                common::xor(&mut symbol, &output[*comp as usize]);
+            }
+            output.push(symbol);
+        }
+
+        // H Half symbols
+        let mut composition: Vec<Vec<u32>> = vec![Vec::new(); h as usize];
+        let m = common::gray_sequence(k as usize + s as usize, hp);
+        for i in 0..h {
+            for j in 0..k + s {
+                if common::bit_set(m[j as usize], i) {
+                    composition[i as usize].push(j);
+                }
+            }
+
+            let mut symbol = vec![0_u8; output[0].len()];
+            for comp in &composition[i as usize] {
+                common::xor(&mut symbol, &output[*comp as usize]);
+            }
+            output.push(symbol);
+        }
+
+        assert_eq!(l as usize, output.len());
+
+        output
+    }
+
     pub fn new(k: u32) -> Self {
         let (l, l_prime, s, h, hp) = common::intermediate_symbols(k);
         let mut matrix = SparseMatrix::new(l as usize);
@@ -112,15 +168,16 @@ impl Raptor {
 
         self.reduce();
 
-        let mut source_block: Vec<Vec<u8>> = Vec::new();
-        for i in 0..self.k {
-            let block =
-                common::lt_encode(self.k, i, self.l, self.l_prime, &self.matrix.intermediate);
-            source_block.push(block);
-        }
+        // let mut source_block: Vec<Vec<u8>> = Vec::new();
+        // for i in 0..self.k {
+        //     let block =
+        //         common::lt_encode(self.k, i, self.l, self.l_prime, &self.matrix.intermediate);
+        //     source_block.push(block);
+        // }
+        let source_block = &self.matrix.intermediate[..self.k as usize];
 
         let partition = Partition::new(size, self.k as usize);
-        Some(partition.decode_source_block(&source_block))
+        Some(partition.decode_source_block(source_block))
     }
 
     pub fn fully_specified(&self) -> bool {

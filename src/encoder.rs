@@ -1,6 +1,5 @@
 use crate::common;
 use crate::partition::Partition;
-use crate::raptor;
 
 /// A struct that represents a source block encoder that uses Raptor codes.
 pub struct SourceBlockEncoder {
@@ -25,15 +24,20 @@ impl SourceBlockEncoder {
         let partition = Partition::new(source_block.len(), max_source_symbols);
         let source_block = partition.create_source_block(source_block);
         let k = source_block.len() as u32;
-        let mut raptor = raptor::Raptor::new(k);
-        raptor.add_encoding_symbols(&source_block);
-        raptor.reduce();
+
+        // let mut raptor = raptor::Raptor::new(k);
+        // raptor.add_encoding_symbols(&source_block);
+        // raptor.reduce();
+        // let intermediate = raptor.intermediate_symbols().to_vec();
+
+        let (l, l_prime, _s, _h, _hp) = common::intermediate_symbols(k);
+        let intermediate = super::raptor::Raptor::create_intermediate_symbols(k, &source_block);
 
         SourceBlockEncoder {
-            intermediate: raptor.intermediate_symbols().to_vec(),
+            intermediate,
             k,
-            l: raptor.get_l(),
-            l_prime: raptor.get_l_prime(),
+            l,
+            l_prime,
         }
     }
 
