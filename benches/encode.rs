@@ -21,7 +21,7 @@ fn raptor_benchmark(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(1000));
     group.bench_function("encode 1k", |b| {
         b.iter(|| {
-            raptor_code::encode_source_block(black_box(&data[..1000]), black_box(64), black_box(10))
+            raptor_code::encode_source_block(black_box(&data[..1000]), black_box(1), black_box(2))
         })
     });
 
@@ -30,7 +30,7 @@ fn raptor_benchmark(c: &mut Criterion) {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..10 * 1024]),
-                black_box(64),
+                black_box(10),
                 black_box(10),
             )
         })
@@ -41,8 +41,8 @@ fn raptor_benchmark(c: &mut Criterion) {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..100 * 1024]),
-                black_box(64),
-                black_box(10),
+                black_box(100),
+                black_box(100),
             )
         })
     });
@@ -52,8 +52,8 @@ fn raptor_benchmark(c: &mut Criterion) {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..1024 * 1024]),
-                black_box(64),
-                black_box(10),
+                black_box(1024),
+                black_box(1024),
             )
         })
     });
@@ -68,24 +68,27 @@ fn raptor_benchmark(c: &mut Criterion) {
             //         black_box(10),
             //         );
             // }
-            raptor_code::encode_source_block(
-                black_box(&data[0..1024 * 1024]),
-                black_box(64),
-                black_box(10),
-            )
+            let (symbols, _) = raptor_code::encode_source_block(
+                black_box(&data[0..4 * 1024 * 1024]),
+                black_box(4 * 1024),
+                black_box(4 * 1024),
+            );
+            assert_eq!(symbols.len(), 2 * 4 * 1024);
+            assert!(symbols[0].len() > 1000);
+            assert!(symbols[0].len() < 2000);
         })
     });
 
-    group.throughput(Throughput::Bytes(10 * 1024 * 1024));
-    group.bench_function("encode 10MB", |b| {
-        b.iter(|| {
-            raptor_code::encode_source_block(
-                black_box(&data[0..10 * 1024 * 1024]),
-                black_box(64),
-                black_box(10),
-            );
-        })
-    });
+    // group.throughput(Throughput::Bytes(10 * 1024 * 1024));
+    // group.bench_function("encode 10MB", |b| {
+    //     b.iter(|| {
+    //         raptor_code::encode_source_block(
+    //             black_box(&data[0..10 * 1024 * 1024]),
+    //             black_box(64),
+    //             black_box(10),
+    //         );
+    //     })
+    // });
 }
 
 criterion_group!(benches, raptor_benchmark);
