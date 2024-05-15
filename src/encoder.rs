@@ -69,6 +69,22 @@ impl SourceBlockEncoder {
 
         block
     }
+
+    /// faster fountain?
+    pub fn fountain2(&mut self, output: &mut [u8]) {
+        let symbol_size = self.intermediate.len();
+        for esi in 0..output.len() / symbol_size {
+            let indices = common::find_lt_indices(self.k, esi as u32, self.l, self.l_prime);
+            for indice in indices {
+                if indice < self.intermediate.len() as u32 {
+                    common::xor_slice(
+                        &mut output[esi * symbol_size..(esi + 1) * symbol_size],
+                        &self.intermediate[indice as usize],
+                    );
+                }
+            }
+        }
+    }
 }
 
 ///
@@ -100,6 +116,20 @@ pub fn encode_source_block(
     for esi in 0..n as u32 {
         output.push(encoder.fountain(esi));
     }
+    (output, encoder.nb_source_symbols())
+}
+
+/// faster?
+pub fn encode_source_block_2(
+    source_block: &[u8],
+    max_source_symbols: usize,
+    nb_repair: usize,
+) -> (Vec<u8>, u32) {
+    let mut encoder = SourceBlockEncoder::new(source_block, max_source_symbols);
+    let n = encoder.nb_source_symbols() as usize + nb_repair;
+
+    let mut output = vec![0_u8; n * encoder.intermediate[0].len()];
+    encoder.fountain2(&mut output);
     (output, encoder.nb_source_symbols())
 }
 

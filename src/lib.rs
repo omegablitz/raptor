@@ -104,6 +104,7 @@ mod tables;
 pub use decoder::decode_source_block;
 pub use decoder::SourceBlockDecoder;
 pub use encoder::encode_source_block;
+pub use encoder::encode_source_block_2;
 pub use encoder::SourceBlockEncoder;
 
 #[cfg(test)]

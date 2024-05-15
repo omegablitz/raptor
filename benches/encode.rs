@@ -68,14 +68,14 @@ fn raptor_benchmark(c: &mut Criterion) {
             //         black_box(10),
             //         );
             // }
-            let (symbols, _) = raptor_code::encode_source_block(
+            let (symbols, _) = raptor_code::encode_source_block_2(
                 black_box(&data[0..4 * 1024 * 1024]),
                 black_box(4 * 1024),
                 black_box(4 * 1024),
             );
-            assert_eq!(symbols.len(), 2 * 4 * 1024);
-            assert!(symbols[0].len() > 1000);
-            assert!(symbols[0].len() < 2000);
+            // assert_eq!(symbols.len(), 2 * 4 * 1024);
+            assert!(symbols.len() / (2 * 4 * 1024) > 1000);
+            assert!(symbols.len() / (2 * 4 * 1024) < 2000);
         })
     });
 

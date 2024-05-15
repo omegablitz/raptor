@@ -246,6 +246,25 @@ pub fn lt_encode(k: u32, x: u32, l: u32, l_prime: u32, c: &[Vec<u8>]) -> Vec<u8>
     block
 }
 
+#[cfg(any(
+    not(any(target_arch = "x86", target_arch = "x86_64")),
+    not(target_feature = "avx2")
+))]
+pub fn xor_slice(row_1: &mut [u8], row_2: &[u8]) {
+    xor_u8(row_1, row_2)
+}
+
+/// Use LLVM’s auto-vectorization to produce optimized vectorized code for AVX2
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    target_feature = "avx2"
+))]
+pub fn xor_slice(row_1: &mut [u8], row_2: &[u8]) {
+    // Note that this `unsafe` block is safe because we're testing
+    // that the `avx2` feature is indeed available on our CPU.
+    unsafe { _xor_u8_avx2(row_1, row_2) };
+}
+
 /// Performs a bitwise exclusive or (XOR) operation on two slices of bytes.
 ///
 /// # Parameters
