@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rand::RngCore;
 
 fn create_source_block_data(length: usize) -> Vec<u8> {
@@ -17,13 +17,16 @@ fn raptor_benchmark(c: &mut Criterion) {
 
     let data = create_source_block_data(100 * 1024 * 1024);
 
-    c.bench_function("encode 1k", |b| {
+    let mut group = c.benchmark_group("encode");
+    group.throughput(Throughput::Bytes(1000));
+    group.bench_function("encode 1k", |b| {
         b.iter(|| {
             raptor_code::encode_source_block(black_box(&data[..1000]), black_box(64), black_box(10))
         })
     });
 
-    c.bench_function("encode 10k", |b| {
+    group.throughput(Throughput::Bytes(10 * 1024));
+    group.bench_function("encode 10k", |b| {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..10 * 1024]),
@@ -33,7 +36,8 @@ fn raptor_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("encode 100k", |b| {
+    group.throughput(Throughput::Bytes(100 * 1024));
+    group.bench_function("encode 100k", |b| {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..100 * 1024]),
@@ -43,7 +47,8 @@ fn raptor_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("encode 1MB", |b| {
+    group.throughput(Throughput::Bytes(1024 * 1024));
+    group.bench_function("encode 1MB", |b| {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..1024 * 1024]),
@@ -53,13 +58,32 @@ fn raptor_benchmark(c: &mut Criterion) {
         })
     });
 
-    c.bench_function("encode 10MB", |b| {
+    group.throughput(Throughput::Bytes(4 * 1024 * 1024));
+    group.bench_function("encode 4MB", |b| {
+        b.iter(|| {
+            // for _ in 0..1000 {
+            //     raptor_code::encode_source_block(
+            //         black_box(&data[0..1024 * 1024]),
+            //         black_box(64),
+            //         black_box(10),
+            //         );
+            // }
+            raptor_code::encode_source_block(
+                black_box(&data[0..1024 * 1024]),
+                black_box(64),
+                black_box(10),
+            )
+        })
+    });
+
+    group.throughput(Throughput::Bytes(10 * 1024 * 1024));
+    group.bench_function("encode 10MB", |b| {
         b.iter(|| {
             raptor_code::encode_source_block(
                 black_box(&data[0..10 * 1024 * 1024]),
                 black_box(64),
                 black_box(10),
-            )
+            );
         })
     });
 }
