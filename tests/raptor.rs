@@ -131,6 +131,12 @@ mod tests {
     }
 
     #[test]
+    pub fn test_single_source_symbol_no_loss() {
+        init();
+        encode_decode(1, 1000, 0, 0);
+    }
+
+    #[test]
     pub fn test_encode_decode_no_loss() {
         init();
         encode_decode(1000, 10, 0, 0);

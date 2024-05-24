@@ -58,7 +58,7 @@ impl SourceBlockEncoder {
     ///
     /// A tuple containing:
     /// * `Vec<u8>` : The generated encoding symbol
-    pub fn fountain(&mut self, esi: u32) -> Vec<u8> {
+    pub fn fountain(&self, esi: u32) -> Vec<u8> {
         let mut block = Vec::new();
         let indices = common::find_lt_indices(self.k, esi, self.l, self.l_prime);
         for indice in indices {
@@ -70,9 +70,14 @@ impl SourceBlockEncoder {
         block
     }
 
+    /// returns length of generated chunks
+    pub fn chunk_len(&self) -> usize {
+        self.intermediate[0].len()
+    }
+
     /// faster fountain?
     pub fn fountain2(&mut self, output: &mut [u8]) {
-        let symbol_size = self.intermediate.len();
+        let symbol_size = self.intermediate[0].len();
         for esi in 0..output.len() / symbol_size {
             let indices = common::find_lt_indices(self.k, esi as u32, self.l, self.l_prime);
             for indice in indices {
@@ -82,6 +87,17 @@ impl SourceBlockEncoder {
                         &self.intermediate[indice as usize],
                     );
                 }
+            }
+        }
+    }
+
+    /// faster fountain?
+    pub fn fountain3(&mut self, esi: u32, output: &mut [u8]) {
+        assert_eq!(output.len(), self.chunk_len());
+        let indices = common::find_lt_indices(self.k, esi, self.l, self.l_prime);
+        for indice in indices {
+            if indice < self.intermediate.len() as u32 {
+                common::xor_slice(output, &self.intermediate[indice as usize]);
             }
         }
     }
