@@ -358,7 +358,7 @@ pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
         new_row_1.extend_from_slice(&row_2[j..]);
     }
 
-    *row_1 = new_row_1;
+    std::mem::swap(row_1, &mut new_row_1);
 }
 // pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
 //     let mut i = 0;
