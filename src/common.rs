@@ -330,29 +330,60 @@ fn xor_u8(row_1: &mut [u8], row_2: &[u8]) {
 /// * The function assumes that the input slices are sorted.
 /// * The function modifies the input `row_1` slice in place to store the result of the symmetric difference.
 pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
+    let mut new_row_1 = Vec::new();
+
     let mut i = 0;
     let mut j = 0;
 
-    let jl = row_2.len();
-    while i < row_1.len() && j < jl {
+    while i < row_1.len() && j < row_2.len() {
         let v_1 = row_1[i];
         let v_2 = row_2[j];
         if v_1 == v_2 {
             // Remove union element
-            row_1.remove(i);
+            i += 1;
             j += 1;
         } else if v_2 < v_1 {
-            row_1.insert(i, v_2);
+            new_row_1.push(v_2);
             j += 1;
-            i += 1
         } else {
+            new_row_1.push(v_1);
             i += 1;
         }
     }
 
-    // Add remaining elements
-    row_1.extend(&row_2[j..]);
+    if i < row_1.len() {
+        new_row_1.extend(&row_1[i..]);
+    }
+    if j < row_2.len() {
+        new_row_1.extend(&row_2[j..]);
+    }
+
+    *row_1 = new_row_1;
 }
+// pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
+//     let mut i = 0;
+//     let mut j = 0;
+//
+//     let jl = row_2.len();
+//     while i < row_1.len() && j < jl {
+//         let v_1 = row_1[i];
+//         let v_2 = row_2[j];
+//         if v_1 == v_2 {
+//             // Remove union element
+//             row_1.remove(i);
+//             j += 1;
+//         } else if v_2 < v_1 {
+//             row_1.insert(i, v_2);
+//             j += 1;
+//             i += 1
+//         } else {
+//             i += 1;
+//         }
+//     }
+//
+//     // Add remaining elements
+//     row_1.extend(&row_2[j..]);
+// }
 
 #[cfg(test)]
 mod tests {
