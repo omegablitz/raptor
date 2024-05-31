@@ -330,7 +330,7 @@ fn xor_u8(row_1: &mut [u8], row_2: &[u8]) {
 /// * The function assumes that the input slices are sorted.
 /// * The function modifies the input `row_1` slice in place to store the result of the symmetric difference.
 pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
-    let mut new_row_1 = Vec::new();
+    let mut new_row_1 = Vec::with_capacity(row_1.len() + row_2.len());
 
     let mut i = 0;
     let mut j = 0;
@@ -352,10 +352,10 @@ pub fn symmetric_difference(row_1: &mut Vec<u32>, row_2: &[u32]) {
     }
 
     if i < row_1.len() {
-        new_row_1.extend(&row_1[i..]);
+        new_row_1.extend_from_slice(&row_1[i..]);
     }
     if j < row_2.len() {
-        new_row_1.extend(&row_2[j..]);
+        new_row_1.extend_from_slice(&row_2[j..]);
     }
 
     *row_1 = new_row_1;
