@@ -1,4 +1,6 @@
-use crate::common;
+use std::ops::Deref;
+
+use crate::{common, sparse_vector::SparseVector};
 
 /// Sparce Matrix
 ///
@@ -14,14 +16,20 @@ pub struct SparseMatrix {
     /// | 0 1 0 1 |           [ 1, 3 ],
     /// | 1 1 1 0 | -> coeff  [ 0, 1, 2],
     /// | 1 0 0 0 |           [ 0 ] ]
-    a: Vec<Vec<u16>>,
+    ///
+    /// M x L matrix
+    a: Vec<SparseVector>,
 
-    /// Intermediate symbol indices
+    v_start_idx: u16,
+
+    /// Intermediate symbol indices (size L)
     c: Vec<u16>,
-    // /// Encoding symbol indices
-    // d: Vec<u16>,
-    /// Encoding symbols
+
+    /// Encoding symbols (size M)
     D: Vec<Vec<u8>>,
+
+    row_swaps: Vec<(u16, u16)>,
+    col_swaps: Vec<(u16, u16)>,
 }
 
 impl SparseMatrix {
@@ -29,24 +37,62 @@ impl SparseMatrix {
         Self {
             l,
             a: Vec::new(),
+            v_start_idx: 0,
             c: (0..l).collect(),
-            // d: Vec::new(),
             D: Vec::new(),
+
+            row_swaps: Vec::new(),
+            col_swaps: Vec::new(),
         }
+    }
+
+    fn swap_row(&mut self, first: u16, second: u16) {
+        self.a.swap(first.into(), second.into());
+        self.D.swap(first.into(), second.into());
+
+        self.row_swaps.push((first, second));
+    }
+
+    fn swap_col(&mut self, from_start_row: u16, first: u16, second: u16) {
+        for row in &mut self.a[from_start_row as usize..] {
+            row.swap(first, second);
+        }
+        self.c.swap(first.into(), second.into());
+
+        self.col_swaps.push((first, second));
     }
 
     /// * `components` - A vector of u32 numbers representing the indices of the intermediate blocks
     /// * `b` - A vector of u8 numbers representing the encoding symbol
-    pub fn add_equation(&mut self, components: Vec<u16>, b: Vec<u8>) {
+    pub fn add_equation(&mut self, components: Vec<u16>, mut b: Vec<u8>) {
+        // apply previous swaps to new equation
+        let mut components = SparseVector::new(components);
+        for (first, second) in self.col_swaps.iter().copied() {
+            components.swap(first, second)
+        }
+        for (first, second) in self.row_swaps.iter().copied() {
+            b.swap(first.into(), second.into());
+        }
+
+        // TODO xor 0..self.v_start_idx rows into new row as necessary
+
         self.a.push(components);
-        // self.d.push(
-        //     // TODO fail decoding instead of panic?
-        //     self.d
-        //         .len()
-        //         .try_into()
-        //         .expect("# of encoded symbols exceeds u16 max"),
-        // );
         self.D.push(b);
+
+        let inserted_components_idx = self.a.len() - 1;
+        let inserted_components = &self.a[inserted_components_idx];
+        if let Some(first) = inserted_components.first() {
+            // TODO add to previous steps list
+
+            self.swap_col(self.v_start_idx, self.v_start_idx, *first);
+            self.swap_row(self.v_start_idx, inserted_components_idx as u16);
+
+            // TODO xor swapped row into all other rows
+
+            self.v_start_idx += 1;
+
+            // TODO check if any other degree one rows now
+        }
     }
 
     /// Check is the decode matrix is fully specified

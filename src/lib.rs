@@ -100,6 +100,7 @@ mod partition;
 mod raptor;
 mod sparse_matrix;
 mod sparse_matrix_inactivation;
+mod sparse_vector;
 mod tables;
 
 pub use decoder::decode_source_block;
