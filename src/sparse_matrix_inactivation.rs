@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::{common, sparse_vector::SparseVector};
 
 /// Sparce Matrix
@@ -30,6 +28,9 @@ pub struct SparseMatrix {
 
     row_swaps: Vec<(u16, u16)>,
     col_swaps: Vec<(u16, u16)>,
+
+    // FIXME hack
+    max_symbol_size: usize,
 }
 
 impl SparseMatrix {
@@ -43,6 +44,8 @@ impl SparseMatrix {
 
             row_swaps: Vec::new(),
             col_swaps: Vec::new(),
+
+            max_symbol_size: 0,
         }
     }
 
@@ -65,6 +68,14 @@ impl SparseMatrix {
     /// * `components` - A vector of u32 numbers representing the indices of the intermediate blocks
     /// * `b` - A vector of u8 numbers representing the encoding symbol
     pub fn add_equation(&mut self, components: Vec<u16>, mut b: Vec<u8>) {
+        if self.max_symbol_size < b.len() {
+            self.max_symbol_size = b.len();
+            for symbol in &mut self.D {
+                symbol.resize(self.max_symbol_size, 0);
+            }
+        }
+        b.resize(self.max_symbol_size, 0);
+
         // apply previous swaps to new equation
         let mut components = SparseVector::new(components);
         for (first, second) in self.col_swaps.iter().copied() {
@@ -135,8 +146,10 @@ impl SparseMatrix {
         if !self.fully_specified() {
             return None;
         }
-
-        let intermediate_symbols = self.c.iter().map(|idx| &self.D[*idx as usize]).collect();
+        let mut intermediate_symbols = vec![&self.D[0]; self.c.len()];
+        for (c, d) in self.c.iter().zip(&self.D) {
+            intermediate_symbols[*c as usize] = d;
+        }
         Some(intermediate_symbols)
     }
 }
@@ -227,10 +240,47 @@ mod tests {
         let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
         let mut matrix = SparseMatrix::new(3);
 
+        let mut second_symbol = symbols[0].clone();
+        common::xor_slice(&mut second_symbol, &symbols[1]);
+        common::xor_slice(&mut second_symbol, &symbols[2]);
+        matrix.add_equation(vec![0, 1, 2], second_symbol);
+
+        let mut first_symbol = symbols[0].clone();
+        common::xor_slice(&mut first_symbol, &symbols[2]);
+        matrix.add_equation(vec![0, 2], first_symbol);
+
+        matrix.add_equation(vec![2], symbols[2].clone());
+
+        validate_matrix(&matrix, &symbols);
+    }
+
+    #[test]
+    fn test_extra() {
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
+        let mut matrix = SparseMatrix::new(3);
+
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+        let mut first_symbol = symbols[0].clone();
+        common::xor_slice(&mut first_symbol, &symbols[2]);
+        matrix.add_equation(vec![0, 2], first_symbol);
+
+        validate_matrix(&matrix, &symbols);
+    }
+
+    #[test]
+    fn test_zero() {
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![0, 0, 0, 0]];
+        let mut matrix = SparseMatrix::new(3);
+
         let mut first_symbol = symbols[0].clone();
         common::xor_slice(&mut first_symbol, &symbols[1]);
         matrix.add_equation(vec![0, 1], first_symbol);
-        matrix.add_equation(vec![2], symbols[2].clone());
+        matrix.add_equation(vec![2], vec![]);
         matrix.add_equation(vec![1], symbols[1].clone());
 
         validate_matrix(&matrix, &symbols);
