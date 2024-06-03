@@ -74,10 +74,10 @@ impl Partition {
 
         assert!(self.nb_long + self.nb_small == source_block.len());
         for i in 0..self.nb_long {
-            out.copy_from_slice(&source_block[i][0..self.long_size]);
+            out.extend_from_slice(&source_block[i][0..self.long_size]);
         }
         for i in 0..self.nb_small {
-            out.copy_from_slice(&source_block[self.nb_long + i][0..self.small_size]);
+            out.extend_from_slice(&source_block[self.nb_long + i][0..self.small_size]);
         }
         out
     }
