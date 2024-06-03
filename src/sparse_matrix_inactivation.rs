@@ -74,7 +74,16 @@ impl SparseMatrix {
             b.swap(first.into(), second.into());
         }
 
-        // TODO xor 0..self.v_start_idx rows into new row as necessary
+        // xor 0..self.v_start_idx rows into new row as necessary
+        // we find the first index thats >= v_start_idx and drain 0..i
+        let drain_until = match components.binary_search(&self.v_start_idx) {
+            Ok(idx) => idx,
+            Err(idx) => idx,
+        };
+        for zeroed_component in components.drain(0..drain_until) {
+            // zeroed_component is equivalent to the row index that we need to xor
+            common::xor_slice(&mut b, &self.D[zeroed_component as usize])
+        }
 
         self.a.push(components);
         self.D.push(b);
@@ -82,8 +91,6 @@ impl SparseMatrix {
         let inserted_components_idx = self.a.len() - 1;
         let inserted_components = &self.a[inserted_components_idx];
         if let Some(first) = inserted_components.first() {
-            // TODO add to previous steps list
-
             self.swap_col(self.v_start_idx, self.v_start_idx, *first);
             self.swap_row(self.v_start_idx, inserted_components_idx as u16);
 

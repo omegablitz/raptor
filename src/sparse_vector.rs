@@ -45,3 +45,9 @@ impl std::ops::Deref for SparseVector {
         &self.0
     }
 }
+
+impl std::ops::DerefMut for SparseVector {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
