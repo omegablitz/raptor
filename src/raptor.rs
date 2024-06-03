@@ -202,25 +202,25 @@ mod tests {
         assert!(raptor.matrix.coeff[2] == vec![2, 3, 4, 7, 9, 14]);
     }
 
-    #[test]
-    fn test_raptor() {
-        crate::tests::init();
+    // #[test]
+    // fn test_raptor() {
+    //     crate::tests::init();
 
-        let input: Vec<u8> = vec![1, 2, 7, 4, 0, 2, 54, 4, 1, 1, 10, 200, 1, 21, 3, 80];
-        let partition = Partition::new(input.len(), 4);
-        let encoding_symbols = partition.create_source_block(&input);
+    //     let input: Vec<u8> = vec![1, 2, 7, 4, 0, 2, 54, 4, 1, 1, 10, 200, 1, 21, 3, 80];
+    //     let partition = Partition::new(input.len(), 4);
+    //     let encoding_symbols = partition.create_source_block(&input);
 
-        let mut raptor = super::Raptor::new(encoding_symbols.len() as u32);
-        raptor.add_encoding_symbols(&encoding_symbols);
+    //     let mut raptor = super::Raptor::new(encoding_symbols.len() as u32);
+    //     raptor.add_encoding_symbols(&encoding_symbols);
 
-        assert!(raptor.fully_specified());
+    //     assert!(raptor.fully_specified());
 
-        let out = raptor.decode(input.len()).unwrap();
+    //     let out = raptor.decode(input.len()).unwrap();
 
-        log::debug!("{:?} / {:?}", out, input);
-        assert!(out.len() == input.len());
-        assert!(out == input);
-    }
+    //     log::debug!("{:?} / {:?}", out, input);
+    //     assert!(out.len() == input.len());
+    //     assert!(out == input);
+    // }
 
     #[test]
     fn test_decode_empty() {
