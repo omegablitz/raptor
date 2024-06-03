@@ -57,7 +57,7 @@ mod tests {
                 .unwrap();
 
         assert!(decoded_source_block.len() == source_block_data.len());
-        assert!(decoded_source_block == source_block_data);
+        assert_eq!(decoded_source_block, source_block_data);
     }
 
     fn on_the_fly_encode(

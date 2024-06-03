@@ -69,7 +69,7 @@ impl Partition {
         output
     }
 
-    pub fn decode_source_block(&self, source_block: &[Vec<u8>]) -> Vec<u8> {
+    pub fn decode_source_block(&self, source_block: &[&Vec<u8>]) -> Vec<u8> {
         let mut out = Vec::new();
 
         assert!(self.nb_long + self.nb_small == source_block.len());

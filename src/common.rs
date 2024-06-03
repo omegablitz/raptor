@@ -202,7 +202,7 @@ fn triple(k: u32, x: u32, _l: u32, l_prime: u32) -> (u32, u32, u32) {
 /// * `x`: encoding symbol number (ESI)
 /// * `l`: The number of intermediate symbols desired (K+S+H)
 /// * `l_prime`:  The first prime number >= L
-pub fn find_lt_indices(k: u32, x: u32, l: u32, l_prime: u32) -> Vec<u32> {
+pub fn find_lt_indices(k: u32, x: u32, l: u32, l_prime: u32) -> Vec<u16> {
     let (mut d, a, mut b) = triple(k, x, l, l_prime);
     if d > l {
         d = l;
@@ -212,14 +212,14 @@ pub fn find_lt_indices(k: u32, x: u32, l: u32, l_prime: u32) -> Vec<u32> {
     while b >= l {
         b = (b + a) % l_prime;
     }
-    indices.push(b);
+    indices.push(b as u16);
 
     for _ in 1..d {
         b = (b + a) % l_prime;
         while b >= l {
             b = (b + a) % l_prime;
         }
-        indices.push(b);
+        indices.push(b as u16);
     }
 
     indices.sort();
@@ -523,7 +523,7 @@ mod tests {
         struct Test {
             k: u32,
             x: u32,
-            indices: Vec<u32>,
+            indices: Vec<u16>,
         }
 
         let test_vector = vec![

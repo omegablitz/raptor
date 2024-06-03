@@ -62,7 +62,7 @@ impl SourceBlockEncoder {
         let mut block = Vec::new();
         let indices = common::find_lt_indices(self.k, esi, self.l, self.l_prime);
         for indice in indices {
-            if indice < self.intermediate.len() as u32 {
+            if indice < self.intermediate.len() as u16 {
                 common::xor(&mut block, &self.intermediate[indice as usize]);
             }
         }
@@ -81,7 +81,7 @@ impl SourceBlockEncoder {
         for esi in 0..output.len() / symbol_size {
             let indices = common::find_lt_indices(self.k, esi as u32, self.l, self.l_prime);
             for indice in indices {
-                if indice < self.intermediate.len() as u32 {
+                if indice < self.intermediate.len() as u16 {
                     common::xor_slice(
                         &mut output[esi * symbol_size..(esi + 1) * symbol_size],
                         &self.intermediate[indice as usize],
@@ -96,7 +96,7 @@ impl SourceBlockEncoder {
         assert_eq!(output.len(), self.chunk_len());
         let indices = common::find_lt_indices(self.k, esi, self.l, self.l_prime);
         for indice in indices {
-            if indice < self.intermediate.len() as u32 {
+            if indice < self.intermediate.len() as u16 {
                 common::xor_slice(output, &self.intermediate[indice as usize]);
             }
         }
