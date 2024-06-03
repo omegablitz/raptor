@@ -161,20 +161,18 @@ impl SparseMatrix {
         for component in &components {
             self.a_t[*component as usize].push(self.a.len() as u16);
         }
+        let mut try_peel = vec![self.a.len()];
         self.a.push(components);
 
         self.D.push(b);
 
-        let inserted_components_idx = self.a.len() - 1;
-        let inserted_components = &self.a[inserted_components_idx];
-        let mut ready_to_peel = if inserted_components.len() == 1 {
-            Some(inserted_components_idx)
-        } else {
-            None
-        };
-        while let Some(physical_peel_idx) = ready_to_peel.take() {
+        while let Some(physical_peel_idx) = try_peel.pop() {
             let peel_components = &self.a[physical_peel_idx];
             let virtual_peel_idx = self.a_row_physical_to_virtual[physical_peel_idx];
+            if virtual_peel_idx < self.v_start_idx || peel_components.len() != 1 {
+                // has been already peeled, or can't peel
+                continue;
+            }
             self.swap_col(
                 self.v_start_idx,
                 self.a_col_physical_to_virtual[peel_components[0] as usize],
@@ -198,7 +196,7 @@ impl SparseMatrix {
                     a_row.remove(idx);
                     common::xor_slice(&mut d_second[0], &d_first[self.v_start_idx as usize]);
                     if a_row.len() == 1 {
-                        ready_to_peel = Some((*physical_row_idx).into());
+                        try_peel.push((*physical_row_idx).into());
                     }
                 }
                 retain
