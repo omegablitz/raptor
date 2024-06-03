@@ -90,8 +90,8 @@ impl SparseMatrix {
 
         let inserted_components_idx = self.a.len() - 1;
         let inserted_components = &self.a[inserted_components_idx];
-        if let Some(first) = inserted_components.first() {
-            self.swap_col(self.v_start_idx, self.v_start_idx, *first);
+        if inserted_components.len() == 1 {
+            self.swap_col(self.v_start_idx, self.v_start_idx, inserted_components[0]);
             self.swap_row(self.v_start_idx, inserted_components_idx as u16);
 
             // TODO xor swapped row into all other rows
