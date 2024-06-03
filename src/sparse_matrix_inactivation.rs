@@ -16,7 +16,12 @@ pub struct SparseMatrix {
     /// | 1 0 0 0 |           [ 0 ] ]
     ///
     /// M x L matrix
-    a: Vec<SparseVector>,
+    a: Vec<Vec<u16>>,
+
+    /// a_col_physical_to_virtual[1] = 0 means that a[i][1] is the first column
+    a_col_physical_to_virtual: Vec<u16>,
+    /// a_col_virtual_to_physical[0] = 1 means that the first column is at a[i][1]
+    a_col_virtual_to_physical: Vec<u16>,
 
     v_start_idx: u16,
 
@@ -26,9 +31,6 @@ pub struct SparseMatrix {
     /// Encoding symbols (size M)
     D: Vec<Vec<u8>>,
 
-    row_swaps: Vec<(u16, u16)>,
-    col_swaps: Vec<(u16, u16)>,
-
     // FIXME hack
     max_symbol_size: usize,
 }
@@ -37,13 +39,14 @@ impl SparseMatrix {
     pub fn new(l: u16) -> Self {
         Self {
             l,
+
             a: Vec::new(),
+            a_col_physical_to_virtual: (0..l).collect(),
+            a_col_virtual_to_physical: (0..l).collect(),
+
             v_start_idx: 0,
             c: (0..l).collect(),
             D: Vec::new(),
-
-            row_swaps: Vec::new(),
-            col_swaps: Vec::new(),
 
             max_symbol_size: 0,
         }
@@ -52,22 +55,45 @@ impl SparseMatrix {
     fn swap_row(&mut self, first: u16, second: u16) {
         self.a.swap(first.into(), second.into());
         self.D.swap(first.into(), second.into());
-
-        self.row_swaps.push((first, second));
     }
 
-    fn swap_col(&mut self, from_start_row: u16, first: u16, second: u16) {
-        for row in &mut self.a[from_start_row as usize..] {
-            row.swap(first, second);
-        }
-        self.c.swap(first.into(), second.into());
+    fn swap_col(&mut self, first_virtual: u16, second_virtual: u16) {
+        let (first_physical, second_physical) = (
+            self.a_col_virtual_to_physical[first_virtual as usize],
+            self.a_col_virtual_to_physical[second_virtual as usize],
+        );
+        self.a_col_physical_to_virtual
+            .swap(first_physical.into(), second_physical.into());
+        self.a_col_virtual_to_physical
+            .swap(first_virtual.into(), second_virtual.into());
 
-        self.col_swaps.push((first, second));
+        assert_eq!(
+            self.a_col_virtual_to_physical
+                [self.a_col_physical_to_virtual[first_physical as usize] as usize],
+            first_physical
+        );
+        assert_eq!(
+            self.a_col_virtual_to_physical
+                [self.a_col_physical_to_virtual[second_physical as usize] as usize],
+            second_physical
+        );
+        assert_eq!(
+            self.a_col_physical_to_virtual
+                [self.a_col_virtual_to_physical[first_virtual as usize] as usize],
+            first_virtual
+        );
+        assert_eq!(
+            self.a_col_physical_to_virtual
+                [self.a_col_virtual_to_physical[first_virtual as usize] as usize],
+            first_virtual
+        );
+
+        self.c.swap(first_virtual.into(), second_virtual.into());
     }
 
     /// * `components` - A vector of u32 numbers representing the indices of the intermediate blocks
     /// * `b` - A vector of u8 numbers representing the encoding symbol
-    pub fn add_equation(&mut self, components: Vec<u16>, mut b: Vec<u8>) {
+    pub fn add_equation(&mut self, mut components: Vec<u16>, mut b: Vec<u8>) {
         if self.max_symbol_size < b.len() {
             self.max_symbol_size = b.len();
             for symbol in &mut self.D {
@@ -76,22 +102,18 @@ impl SparseMatrix {
         }
         b.resize(self.max_symbol_size, 0);
 
-        // apply previous swaps to new equation
-        let mut components = SparseVector::new(components);
-        for (first, second) in self.col_swaps.iter().copied() {
-            components.swap(first, second)
-        }
-
         // xor 0..self.v_start_idx rows into new row as necessary
-        // we find the first index thats >= v_start_idx and drain 0..i
-        let drain_until = match components.binary_search(&self.v_start_idx) {
-            Ok(idx) => idx,
-            Err(idx) => idx,
-        };
-        for zeroed_component in components.drain(0..drain_until) {
-            // zeroed_component is equivalent to the row index that we need to xor
-            common::xor_slice(&mut b, &self.D[zeroed_component as usize])
-        }
+        components.retain({
+            |physical_col_idx| {
+                let virtual_col_idx = self.a_col_physical_to_virtual[*physical_col_idx as usize];
+                let retain = virtual_col_idx >= self.v_start_idx;
+                if !retain {
+                    // virtual_col_idx is equivalent to the row index that we need to xor
+                    common::xor_slice(&mut b, &self.D[virtual_col_idx as usize])
+                }
+                retain
+            }
+        });
 
         self.a.push(components);
         self.D.push(b);
@@ -105,25 +127,25 @@ impl SparseMatrix {
         };
         while let Some(peel_idx) = ready_to_peel.take() {
             let peel_components = &self.a[peel_idx];
-            self.swap_col(self.v_start_idx, self.v_start_idx, peel_components[0]);
+            self.swap_col(
+                self.v_start_idx,
+                self.a_col_physical_to_virtual[peel_components[0] as usize],
+            );
             self.swap_row(self.v_start_idx, peel_idx as u16);
+            let old_v_start_idx = self.v_start_idx;
             self.v_start_idx += 1;
 
             for (row_idx, components) in
                 (self.v_start_idx..).zip(self.a[self.v_start_idx as usize..].iter_mut())
             {
                 let (d_first, d_second) = self.D.split_at_mut(row_idx.into());
+
+                let physical_col_idx = self.a_col_virtual_to_physical[old_v_start_idx as usize];
                 // xor 0..self.v_start_idx rows into new row as necessary
                 // we find the first index thats >= v_start_idx and drain 0..i
-                let drain_until = match components.binary_search(&self.v_start_idx) {
-                    Ok(idx) => idx,
-                    Err(idx) => idx,
-                };
-                // note that in this case, the loop can only execute at max once!
-                for zeroed_component in components.drain(0..drain_until) {
-                    // zeroed_component is equivalent to the row index that we need to xor
-                    // note that zeroed_component is always < row_idx
-                    common::xor_slice(&mut d_second[0], &d_first[zeroed_component as usize])
+                if let Ok(idx) = components.binary_search(&physical_col_idx) {
+                    components.remove(idx);
+                    common::xor_slice(&mut d_second[0], &d_first[old_v_start_idx as usize])
                 }
 
                 if components.len() == 1 {
