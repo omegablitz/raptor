@@ -90,25 +90,57 @@ impl SparseMatrix {
 
         let inserted_components_idx = self.a.len() - 1;
         let inserted_components = &self.a[inserted_components_idx];
-        if inserted_components.len() == 1 {
-            self.swap_col(self.v_start_idx, self.v_start_idx, inserted_components[0]);
-            self.swap_row(self.v_start_idx, inserted_components_idx as u16);
-
-            // TODO xor swapped row into all other rows
-
+        let mut ready_to_peel = if inserted_components.len() == 1 {
+            Some(inserted_components_idx)
+        } else {
+            None
+        };
+        while let Some(peel_idx) = ready_to_peel.take() {
+            let peel_components = &self.a[peel_idx];
+            self.swap_col(self.v_start_idx, self.v_start_idx, peel_components[0]);
+            self.swap_row(self.v_start_idx, peel_idx as u16);
             self.v_start_idx += 1;
 
-            // TODO check if any other degree one rows now
+            for (row_idx, components) in
+                (self.v_start_idx..).zip(self.a[self.v_start_idx as usize..].iter_mut())
+            {
+                let (d_first, d_second) = self.D.split_at_mut(row_idx.into());
+                // xor 0..self.v_start_idx rows into new row as necessary
+                // we find the first index thats >= v_start_idx and drain 0..i
+                let drain_until = match components.binary_search(&self.v_start_idx) {
+                    Ok(idx) => idx,
+                    Err(idx) => idx,
+                };
+                // note that in this case, the loop can only execute at max once!
+                for zeroed_component in components.drain(0..drain_until) {
+                    // zeroed_component is equivalent to the row index that we need to xor
+                    // note that zeroed_component is always < row_idx
+                    common::xor_slice(&mut d_second[0], &d_first[zeroed_component as usize])
+                }
+
+                if components.len() == 1 {
+                    ready_to_peel = Some(row_idx.into());
+                }
+            }
         }
     }
 
     /// Check is the decode matrix is fully specified
     pub fn fully_specified(&self) -> bool {
-        todo!()
+        self.v_start_idx == self.l
     }
 
     pub fn reduce(&mut self) {
         todo!()
+    }
+
+    pub fn intermediate_symbols(&self) -> Option<Vec<&Vec<u8>>> {
+        if !self.fully_specified() {
+            return None;
+        }
+
+        let intermediate_symbols = self.c.iter().map(|idx| &self.D[*idx as usize]).collect();
+        Some(intermediate_symbols)
     }
 }
 
@@ -142,3 +174,68 @@ impl SparseMatrix {
 //
 // swapping A col j = swapping c row j
 // swapping A row i = swapping d row i
+
+#[cfg(test)]
+mod tests {
+    use crate::common;
+
+    use super::SparseMatrix;
+
+    fn validate_matrix(matrix: &SparseMatrix, symbols: &[Vec<u8>]) {
+        assert!(matrix.fully_specified());
+        let recovered_symbols: Vec<_> = matrix
+            .intermediate_symbols()
+            .unwrap()
+            .into_iter()
+            .take(symbols.len())
+            .cloned()
+            .collect();
+        assert_eq!(symbols, recovered_symbols)
+    }
+
+    #[test]
+    fn test_not_fully_specified() {
+        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+
+        let mut matrix = SparseMatrix::new(3);
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+        assert!(!matrix.fully_specified());
+    }
+
+    #[test]
+    fn test_fully_specified() {
+        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let mut matrix = SparseMatrix::new(3);
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+        matrix.add_equation(vec![2], symbols[2].clone());
+
+        validate_matrix(&matrix, &symbols);
+    }
+
+    #[test]
+    fn test_fully_specified_rearranged() {
+        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let mut matrix = SparseMatrix::new(3);
+        matrix.add_equation(vec![0], symbols[0].clone());
+        matrix.add_equation(vec![2], symbols[2].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+
+        validate_matrix(&matrix, &symbols);
+    }
+
+    #[test]
+    fn test_peeling() {
+        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let mut matrix = SparseMatrix::new(3);
+
+        let mut first_symbol = symbols[0].clone();
+        common::xor_slice(&mut first_symbol, &symbols[1]);
+        matrix.add_equation(vec![0, 1], first_symbol);
+        matrix.add_equation(vec![2], symbols[2].clone());
+        matrix.add_equation(vec![1], symbols[1].clone());
+
+        validate_matrix(&matrix, &symbols);
+    }
+}
