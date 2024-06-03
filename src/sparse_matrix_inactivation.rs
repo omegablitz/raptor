@@ -70,9 +70,6 @@ impl SparseMatrix {
         for (first, second) in self.col_swaps.iter().copied() {
             components.swap(first, second)
         }
-        for (first, second) in self.row_swaps.iter().copied() {
-            b.swap(first.into(), second.into());
-        }
 
         // xor 0..self.v_start_idx rows into new row as necessary
         // we find the first index thats >= v_start_idx and drain 0..i
@@ -131,7 +128,7 @@ impl SparseMatrix {
     }
 
     pub fn reduce(&mut self) {
-        todo!()
+        assert!(self.fully_specified());
     }
 
     pub fn intermediate_symbols(&self) -> Option<Vec<&Vec<u8>>> {
@@ -195,7 +192,7 @@ mod tests {
 
     #[test]
     fn test_not_fully_specified() {
-        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
 
         let mut matrix = SparseMatrix::new(3);
         matrix.add_equation(vec![0], symbols[0].clone());
@@ -205,7 +202,7 @@ mod tests {
 
     #[test]
     fn test_fully_specified() {
-        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
         let mut matrix = SparseMatrix::new(3);
         matrix.add_equation(vec![0], symbols[0].clone());
         matrix.add_equation(vec![1], symbols[1].clone());
@@ -216,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_fully_specified_rearranged() {
-        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
         let mut matrix = SparseMatrix::new(3);
         matrix.add_equation(vec![0], symbols[0].clone());
         matrix.add_equation(vec![2], symbols[2].clone());
@@ -227,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_peeling() {
-        let symbols = vec![vec![1, 1, 1, 1], vec![2, 2, 2, 2], vec![3, 3, 3, 3]];
+        let symbols = vec![vec![1, 2, 3, 4], vec![2, 3, 4, 5], vec![3, 4, 5, 6]];
         let mut matrix = SparseMatrix::new(3);
 
         let mut first_symbol = symbols[0].clone();
