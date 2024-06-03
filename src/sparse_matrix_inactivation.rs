@@ -18,10 +18,19 @@ pub struct SparseMatrix {
     /// M x L matrix
     a: Vec<Vec<u16>>,
 
+    // transposed sparse A
+    // in other words, for each col_physical_idx, all physical rows
+    a_t: Vec<Vec<u16>>,
+
     /// a_col_physical_to_virtual[1] = 0 means that a[i][1] is the first column
     a_col_physical_to_virtual: Vec<u16>,
     /// a_col_virtual_to_physical[0] = 1 means that the first column is at a[i][1]
     a_col_virtual_to_physical: Vec<u16>,
+
+    // a_row_physical_to_virtual[1] = 0 means that a[1] is the first row
+    a_row_physical_to_virtual: Vec<u16>,
+    // a_row_virtual_to_physical[0] = 1 means that the first row is at a[1]
+    a_row_virtual_to_physical: Vec<u16>,
 
     v_start_idx: u16,
 
@@ -41,8 +50,11 @@ impl SparseMatrix {
             l,
 
             a: Vec::new(),
+            a_t: vec![Vec::new(); l.into()],
             a_col_physical_to_virtual: (0..l).collect(),
             a_col_virtual_to_physical: (0..l).collect(),
+            a_row_physical_to_virtual: Vec::new(),
+            a_row_virtual_to_physical: Vec::new(),
 
             v_start_idx: 0,
             c: (0..l).collect(),
@@ -52,9 +64,38 @@ impl SparseMatrix {
         }
     }
 
-    fn swap_row(&mut self, first: u16, second: u16) {
-        self.a.swap(first.into(), second.into());
-        self.D.swap(first.into(), second.into());
+    fn swap_row(&mut self, first_virtual: u16, second_virtual: u16) {
+        let (first_physical, second_physical) = (
+            self.a_row_virtual_to_physical[first_virtual as usize],
+            self.a_row_virtual_to_physical[second_virtual as usize],
+        );
+        self.a_row_physical_to_virtual
+            .swap(first_physical.into(), second_physical.into());
+        self.a_row_virtual_to_physical
+            .swap(first_virtual.into(), second_virtual.into());
+
+        assert_eq!(
+            self.a_row_virtual_to_physical
+                [self.a_row_physical_to_virtual[first_physical as usize] as usize],
+            first_physical
+        );
+        assert_eq!(
+            self.a_row_virtual_to_physical
+                [self.a_row_physical_to_virtual[second_physical as usize] as usize],
+            second_physical
+        );
+        assert_eq!(
+            self.a_row_physical_to_virtual
+                [self.a_row_virtual_to_physical[first_virtual as usize] as usize],
+            first_virtual
+        );
+        assert_eq!(
+            self.a_row_physical_to_virtual
+                [self.a_row_virtual_to_physical[first_virtual as usize] as usize],
+            first_virtual
+        );
+
+        self.D.swap(first_virtual.into(), second_virtual.into());
     }
 
     fn swap_col(&mut self, first_virtual: u16, second_virtual: u16) {
@@ -115,7 +156,13 @@ impl SparseMatrix {
             }
         });
 
+        self.a_row_physical_to_virtual.push(self.a.len() as u16);
+        self.a_row_virtual_to_physical.push(self.a.len() as u16);
+        for component in &components {
+            self.a_t[*component as usize].push(self.a.len() as u16);
+        }
         self.a.push(components);
+
         self.D.push(b);
 
         let inserted_components_idx = self.a.len() - 1;
@@ -125,33 +172,39 @@ impl SparseMatrix {
         } else {
             None
         };
-        while let Some(peel_idx) = ready_to_peel.take() {
-            let peel_components = &self.a[peel_idx];
+        while let Some(physical_peel_idx) = ready_to_peel.take() {
+            let peel_components = &self.a[physical_peel_idx];
+            let virtual_peel_idx = self.a_row_physical_to_virtual[physical_peel_idx];
             self.swap_col(
                 self.v_start_idx,
                 self.a_col_physical_to_virtual[peel_components[0] as usize],
             );
-            self.swap_row(self.v_start_idx, peel_idx as u16);
-            let old_v_start_idx = self.v_start_idx;
+            self.swap_row(self.v_start_idx, virtual_peel_idx);
+
+            let physical_v_start_row = self.a_row_virtual_to_physical[self.v_start_idx as usize];
+            let physical_v_start_col = self.a_col_virtual_to_physical[self.v_start_idx as usize];
+
+            self.a_t[physical_v_start_col as usize].retain(|physical_row_idx| {
+                let retain = physical_row_idx == &physical_v_start_row;
+                if !retain {
+                    let (d_first, d_second) = self.D.split_at_mut(
+                        self.a_row_physical_to_virtual[*physical_row_idx as usize].into(),
+                    );
+
+                    let a_row = &mut self.a[*physical_row_idx as usize];
+                    let idx = a_row
+                        .binary_search(&physical_v_start_col)
+                        .expect("if exists in a_t, must exist in a");
+                    a_row.remove(idx);
+                    common::xor_slice(&mut d_second[0], &d_first[self.v_start_idx as usize]);
+                    if a_row.len() == 1 {
+                        ready_to_peel = Some((*physical_row_idx).into());
+                    }
+                }
+                retain
+            });
+
             self.v_start_idx += 1;
-
-            for (row_idx, components) in
-                (self.v_start_idx..).zip(self.a[self.v_start_idx as usize..].iter_mut())
-            {
-                let (d_first, d_second) = self.D.split_at_mut(row_idx.into());
-
-                let physical_col_idx = self.a_col_virtual_to_physical[old_v_start_idx as usize];
-                // xor 0..self.v_start_idx rows into new row as necessary
-                // we find the first index thats >= v_start_idx and drain 0..i
-                if let Ok(idx) = components.binary_search(&physical_col_idx) {
-                    components.remove(idx);
-                    common::xor_slice(&mut d_second[0], &d_first[old_v_start_idx as usize])
-                }
-
-                if components.len() == 1 {
-                    ready_to_peel = Some(row_idx.into());
-                }
-            }
         }
     }
 
