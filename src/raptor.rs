@@ -1,3 +1,5 @@
+use bytes::{Bytes, BytesMut};
+
 use crate::common;
 use crate::encodingsymbols::EncodingSymbol;
 use crate::partition::Partition;
@@ -11,14 +13,11 @@ pub struct Raptor {
 }
 
 impl Raptor {
-    pub fn create_intermediate_symbols(
-        k: u32,
-        encoding_symbols: &[EncodingSymbol],
-    ) -> Vec<Vec<u8>> {
+    pub fn create_intermediate_symbols(k: u32, encoding_symbols: &[EncodingSymbol]) -> Vec<Bytes> {
         assert_eq!(k as usize, encoding_symbols.len());
         let mut output = encoding_symbols
-            .iter()
-            .map(|symbol| symbol.data.to_vec())
+            .into_iter()
+            .map(|symbol| symbol.data.clone())
             .collect::<Vec<_>>();
 
         let (l, l_prime, s, h, hp) = common::intermediate_symbols(k);
@@ -38,11 +37,11 @@ impl Raptor {
         assert_eq!(composition.len(), s as usize);
 
         for i in 0..s {
-            let mut symbol = vec![0_u8; output[0].len()];
+            let mut symbol = BytesMut::zeroed(output[0].len());
             for comp in &composition[i as usize] {
-                common::xor(&mut symbol, &output[*comp as usize]);
+                common::xor_slice(&mut symbol, &output[*comp as usize]);
             }
-            output.push(symbol);
+            output.push(symbol.freeze());
         }
 
         // H Half symbols
@@ -55,11 +54,11 @@ impl Raptor {
                 }
             }
 
-            let mut symbol = vec![0_u8; output[0].len()];
+            let mut symbol = BytesMut::zeroed(output[0].len());
             for comp in &composition[i as usize] {
-                common::xor(&mut symbol, &output[*comp as usize]);
+                common::xor_slice(&mut symbol, &output[*comp as usize]);
             }
-            output.push(symbol);
+            output.push(symbol.freeze());
         }
 
         assert_eq!(l as usize, output.len());
@@ -157,7 +156,7 @@ impl Raptor {
         self.matrix.reduce()
     }
 
-    pub fn decode(&mut self, size: usize) -> Option<Vec<u8>> {
+    pub fn decode(&mut self, size: usize) -> Option<Bytes> {
         if !self.matrix.fully_specified() {
             return None;
         }

@@ -1,14 +1,15 @@
+use bytes::{Bytes, BytesMut};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use rand::RngCore;
 
-fn create_source_block_data(length: usize) -> Vec<u8> {
-    let mut output = vec![0u8; length];
+fn create_source_block_data(length: usize) -> Bytes {
+    let mut output = BytesMut::zeroed(length);
 
     // Random buffer
     let mut rng = rand::thread_rng();
     rng.fill_bytes(output.as_mut());
 
-    output
+    output.freeze()
 }
 
 fn raptor_benchmark(c: &mut Criterion) {
@@ -69,7 +70,7 @@ fn raptor_benchmark(c: &mut Criterion) {
             //         );
             // }
             let (symbols, _) = raptor_code::encode_source_block_2(
-                black_box(&data[0..4 * 1024 * 1024]),
+                black_box(data.slice(0..4 * 1024 * 1024)),
                 black_box(4 * 1024),
                 black_box(4 * 1024),
             );

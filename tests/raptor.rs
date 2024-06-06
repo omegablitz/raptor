@@ -1,5 +1,6 @@
 mod tests {
 
+    use bytes::Bytes;
     use rand::{Rng, RngCore};
 
     pub fn init() {
@@ -65,7 +66,10 @@ mod tests {
         max_source_symbols: usize,
         nb_repair_symbols: u32,
     ) -> Vec<Vec<u8>> {
-        let mut encoder = raptor_code::SourceBlockEncoder::new(&source_block, max_source_symbols);
+        let encoder = raptor_code::SourceBlockEncoder::new(
+            Bytes::copy_from_slice(source_block),
+            max_source_symbols,
+        );
         let n = encoder.nb_source_symbols() + nb_repair_symbols;
 
         let mut encoded_block = Vec::new();
@@ -88,12 +92,12 @@ mod tests {
                 break;
             }
             if let Some(encoding_symbol) = encoding_symbol {
-                decoder.push_encoding_symbol(encoding_symbol, esi as u32);
+                decoder.push_encoding_symbol(Bytes::copy_from_slice(encoding_symbol), esi as u32);
             }
         }
 
         assert!(decoder.fully_specified());
-        decoder.decode(source_block_length as usize)
+        decoder.decode(source_block_length as usize).map(Into::into)
     }
 
     fn on_the_fly_encode_decode(

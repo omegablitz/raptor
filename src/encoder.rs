@@ -1,9 +1,11 @@
+use bytes::Bytes;
+
 use crate::common;
 use crate::partition::Partition;
 
 /// A struct that represents a source block encoder that uses Raptor codes.
 pub struct SourceBlockEncoder {
-    intermediate: Vec<Vec<u8>>,
+    intermediate: Vec<Bytes>,
     k: u32,
     l: u32,
     l_prime: u32,
@@ -20,7 +22,7 @@ impl SourceBlockEncoder {
     /// # Returns
     ///
     /// A new `SourceBlockEncoder` instance.
-    pub fn new(source_block: &[u8], max_source_symbols: usize) -> Self {
+    pub fn new(source_block: Bytes, max_source_symbols: usize) -> Self {
         let partition = Partition::new(source_block.len(), max_source_symbols);
         let source_block = partition.create_source_block(source_block);
         let k = source_block.len() as u32;
@@ -126,7 +128,8 @@ pub fn encode_source_block(
     max_source_symbols: usize,
     nb_repair: usize,
 ) -> (Vec<Vec<u8>>, u32) {
-    let mut encoder = SourceBlockEncoder::new(source_block, max_source_symbols);
+    let source_block: Bytes = Bytes::copy_from_slice(source_block);
+    let encoder = SourceBlockEncoder::new(source_block, max_source_symbols);
     let mut output: Vec<Vec<u8>> = Vec::new();
     let n = encoder.nb_source_symbols() as usize + nb_repair;
     for esi in 0..n as u32 {
@@ -137,7 +140,7 @@ pub fn encode_source_block(
 
 /// faster?
 pub fn encode_source_block_2(
-    source_block: &[u8],
+    source_block: Bytes,
     max_source_symbols: usize,
     nb_repair: usize,
 ) -> (Vec<u8>, u32) {

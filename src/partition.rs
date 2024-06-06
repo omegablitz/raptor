@@ -1,3 +1,5 @@
+use bytes::{Bytes, BytesMut};
+
 use crate::encodingsymbols::EncodingSymbol;
 
 ///
@@ -43,21 +45,21 @@ impl Partition {
         }
     }
 
-    pub fn create_source_block<'a>(&self, source_data: &'a [u8]) -> Vec<EncodingSymbol<'a>> {
+    pub fn create_source_block(&self, source_data: Bytes) -> Vec<EncodingSymbol> {
         let mut start: usize = 0;
         let mut output: Vec<EncodingSymbol> = Vec::new();
         let mut esi = 0;
 
         for _ in 0..self.nb_long {
             let end = start + self.long_size;
-            output.push(EncodingSymbol::new(&source_data[start..end], esi));
+            output.push(EncodingSymbol::new(source_data.slice(start..end), esi));
             start += self.long_size;
             esi += 1;
         }
 
         for _ in 0..self.nb_small {
             let end = start + self.small_size;
-            output.push(EncodingSymbol::new(&source_data[start..end], esi));
+            output.push(EncodingSymbol::new(source_data.slice(start..end), esi));
             start += self.small_size;
             esi += 1;
 
@@ -69,8 +71,8 @@ impl Partition {
         output
     }
 
-    pub fn decode_source_block(&self, source_block: &[&Vec<u8>]) -> Vec<u8> {
-        let mut out = Vec::new();
+    pub fn decode_source_block(&self, source_block: &[&Vec<u8>]) -> Bytes {
+        let mut out = BytesMut::new();
 
         assert!(self.nb_long + self.nb_small == source_block.len());
         for i in 0..self.nb_long {
@@ -79,6 +81,6 @@ impl Partition {
         for i in 0..self.nb_small {
             out.extend_from_slice(&source_block[self.nb_long + i][0..self.small_size]);
         }
-        out
+        out.into()
     }
 }

@@ -1,3 +1,5 @@
+use bytes::Bytes;
+
 use crate::{encodingsymbols::EncodingSymbol, raptor};
 
 ///
@@ -28,7 +30,7 @@ impl SourceBlockDecoder {
     ///
     /// * `encoding_symbol` - A slice of u8 numbers representing the encoding symbol data
     /// * `esi` - Encoding symbol identifier (ESI)
-    pub fn push_encoding_symbol(&mut self, encoding_symbol: &[u8], esi: u32) {
+    pub fn push_encoding_symbol(&mut self, encoding_symbol: Bytes, esi: u32) {
         let encoding_symbol = EncodingSymbol::new(encoding_symbol, esi);
         self.raptor.add_encoding_symbol(&encoding_symbol);
     }
@@ -50,7 +52,7 @@ impl SourceBlockDecoder {
     ///
     /// * `None` if the source block cannot be decoded
     /// * `Some(Vec<u8>)` if the block is decoded. The vector contains the decoded source block data
-    pub fn decode(&mut self, source_block_length: usize) -> Option<Vec<u8>> {
+    pub fn decode(&mut self, source_block_length: usize) -> Option<Bytes> {
         self.raptor.decode(source_block_length)
     }
 }
@@ -72,7 +74,7 @@ pub fn decode_source_block(
     encoding_symbols: &[Option<Vec<u8>>],
     nb_source_symbols: usize,
     source_block_length: usize,
-) -> Option<Vec<u8>> {
+) -> Option<Bytes> {
     let encoding_symbols = EncodingSymbol::from_option_block(encoding_symbols);
     let mut raptor = raptor::Raptor::new(nb_source_symbols as u32);
     raptor.add_encoding_symbols(&encoding_symbols);

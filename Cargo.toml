@@ -21,6 +21,7 @@ name = "encode"
 harness = false
 
 [dependencies]
+bytes = "1.5"
 log  = "0.4"
 primes = "0.3.0"
 

@@ -1,10 +1,12 @@
-pub struct EncodingSymbol<'a> {
-    pub data: &'a [u8],
+use bytes::Bytes;
+
+pub struct EncodingSymbol {
+    pub data: Bytes,
     pub esi: u32,
 }
 
-impl<'a> EncodingSymbol<'a> {
-    pub fn new(data: &'a [u8], esi: u32) -> Self {
+impl EncodingSymbol {
+    pub fn new(data: Bytes, esi: u32) -> Self {
         EncodingSymbol { data, esi }
     }
 
@@ -14,7 +16,7 @@ impl<'a> EncodingSymbol<'a> {
             .enumerate()
             .filter(|(_, symbols)| symbols.is_some())
             .map(|(esi, symbols)| EncodingSymbol {
-                data: symbols.as_ref().unwrap(),
+                data: Bytes::copy_from_slice(symbols.as_ref().unwrap()),
                 esi: esi as u32,
             })
             .collect()
